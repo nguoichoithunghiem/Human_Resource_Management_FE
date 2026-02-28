@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import type { LeaveRequest } from "../../types/Leave";
+import type { EmployeeResponse } from "../../types/Employee";
+import { getEmployees } from "../../api/employeeApi";
 
 interface Props {
     isOpen: boolean;
@@ -17,28 +19,43 @@ const LeaveForm = ({ isOpen, onClose, onSubmit }: Props) => {
     };
 
     const [formData, setFormData] = useState<LeaveRequest>(initialState);
+    const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [loadingEmployees, setLoadingEmployees] = useState(false);
 
     useEffect(() => {
-        if (!isOpen) {
+        if (isOpen) {
+            fetchEmployees();
+        } else {
             setFormData(initialState);
             setErrors({});
         }
     }, [isOpen]);
 
+    const fetchEmployees = async () => {
+        try {
+            setLoadingEmployees(true);
+            const data = await getEmployees();
+            setEmployees(data);
+        } catch (error) {
+            console.error("Failed to fetch employees", error);
+        } finally {
+            setLoadingEmployees(false);
+        }
+    };
+
     if (!isOpen) return null;
 
     const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement>
+        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
         const { name, value } = e.target;
 
-        setFormData({
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             [name]: name === "employeeId" ? Number(value) : value,
-        });
+        }));
 
-        // Clear lỗi khi user sửa
         setErrors(prev => ({
             ...prev,
             [name]: "",
@@ -58,12 +75,12 @@ const LeaveForm = ({ isOpen, onClose, onSubmit }: Props) => {
     };
 
     const inputStyle = (field: string) =>
-        `border p-2 w-full ${errors[field] ? "border-red-500" : ""
+        `border p-2 w-full rounded ${errors[field] ? "border-red-500" : ""
         }`;
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center">
-            <div className="bg-white p-6 rounded w-[450px]">
+            <div className="bg-white p-6 rounded w-[450px] shadow-lg">
 
                 <h2 className="text-xl font-bold mb-4">
                     Request Leave
@@ -71,16 +88,28 @@ const LeaveForm = ({ isOpen, onClose, onSubmit }: Props) => {
 
                 <div className="grid gap-3">
 
-                    {/* Employee ID */}
+                    {/* Employee Dropdown */}
                     <div>
-                        <input
-                            type="number"
+                        <select
                             name="employeeId"
-                            placeholder="Employee ID"
                             className={inputStyle("employeeId")}
                             value={formData.employeeId}
                             onChange={handleChange}
-                        />
+                            disabled={loadingEmployees}
+                        >
+                            <option value={0}>
+                                {loadingEmployees
+                                    ? "Loading employees..."
+                                    : "-- Select Employee --"}
+                            </option>
+
+                            {employees.map(emp => (
+                                <option key={emp.id} value={emp.id}>
+                                    {emp.id} - {emp.firstName} {emp.lastName}
+                                </option>
+                            ))}
+                        </select>
+
                         {errors.employeeId && (
                             <p className="text-red-500 text-sm">
                                 {errors.employeeId}
